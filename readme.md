@@ -1,7 +1,7 @@
+
 ## U Disk file serving demo
 
 HTTP file server with USB MSC example demonstrates file serving with both upload and download capability, using the `esp_http_server` component of ESP-IDF. 
-
 
 ### Build The Example
 
@@ -25,6 +25,6 @@ GPIO20->USB+ , GPIO19->USB-
 4. everything you upload from web page will be displayed in the disk too
 
 
-![](_static/usb_cdc.jpg)
+![](file_serving/_static/usb_cdc.jpg)
 
-![](_static/web_server.jpg)
+![](file_serving/_static/web_server.jpg)
