@@ -21,6 +21,17 @@ GPIO19/20 to D-/D+ respectively for an ESP32-S2 board
 2.  Download-upload data through WLAN, ESP32-S2 can act as a Wi-Fi AP or STA;
 3.  USB CDC supported for communication with host over USB .
 
+### Build The Example
+
+1. for general uart download
+   1. input `idf.py build` to build the example
+   2. enter or autoswitch to downloader mode
+   3. input `idf.py flash` to download the bin to esp32s2
+2. only have usb port?
+   1. input `idf.py dfu` to build the example
+   2. pulldown `boot` io to enter `USB DFU` downloader mode
+   3. input `idf.py dfu-flash` to download the bin to esp32s2
+
 ## How to Use
 
 1. Plug-in with a micro USB cable to host USB port directly;
