@@ -20,6 +20,8 @@
 #include "esp_jpg_decode.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "screen_driver.h"
+
 static const char* TAG = "to_rgb";
 
 #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
@@ -31,6 +33,8 @@ static const char* TAG = "to_rgb";
 #else
 #error Target CONFIG_IDF_TARGET is not supported
 #endif
+
+extern scr_driver_t g_lcd;
 
 typedef struct {
         uint16_t width;
@@ -51,29 +55,25 @@ static bool _rgb565_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16
 {
     rgb_jpg_decoder * jpeg = (rgb_jpg_decoder *)arg;
     if(!data){
-        if(x == 0 && y == 0){
+        if(x == 0 && y == 0) {
             //write start
             jpeg->width = w;
             jpeg->height = h;
             //if output is null, this is BMP
             if(!jpeg->output){
-                jpeg->output = (uint8_t *)_malloc((w*h*3)+jpeg->data_offset);
+                jpeg->output = (uint8_t *)_malloc((320*24*2)+jpeg->data_offset);
                 if(!jpeg->output){
-                    ESP_LOGE(TAG, "malloc failed %s %d malloc_size = %d but reserved = %d", __func__, __LINE__,(w*h*3)+jpeg->data_offset, esp_get_minimum_free_heap_size());
+                    ESP_LOGE(TAG, "malloc failed %s %d malloc_size = %d but reserved = %d", __func__, __LINE__,(320*24*2)+jpeg->data_offset, esp_get_minimum_free_heap_size());
                     return false;
                 }
             }
         } else {
-            //write end
+            if(jpeg->output)
+            free(jpeg->output);
         }
         return true;
     }
 
-    if (!jpeg->output)
-    {
-        return true;
-    }
-    
     size_t jw = jpeg->width*3;//bytes each row source
     size_t jw2 = jpeg->width*2;//bytes each row dest
     size_t t = y * jw; //start byte of row y source
@@ -98,6 +98,21 @@ static bool _rgb565_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16
         }
         data+=w;
     }
+
+        //ESP_LOGE(TAG,"o= %d",(int)o);
+
+    if (o == out+(320*24*2))
+    {
+        ESP_LOGE(TAG,"X= %u Y=%u",x,y);
+        //g_lcd->draw_bitmap(0, y, 320, 24, jpeg->output);
+    }
+
+    if (o == out+(320*24*2-1))
+    {
+        ESP_LOGE(TAG,"-1  X= %u Y=%u",x,y);
+        //g_lcd->draw_bitmap(0, y, 320, 24, jpeg->output);
+    }
+
     return true;
 }
 
