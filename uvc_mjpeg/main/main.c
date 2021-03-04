@@ -10,6 +10,21 @@
 #include "spi_bus.h"
 #include "screen_driver.h"
 #include "esp_log.h"
+#include "soc/efuse_reg.h"
+#include "esp_heap_caps.h"
+#include "yuv.h"
+
+#ifdef USE_PSRAM
+#if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
+#include "esp32/spiram.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/spiram.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/spiram.h"
+#else
+#error Target CONFIG_IDF_TARGET is not supported
+#endif
+#endif
 
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/clk.h"
@@ -19,7 +34,7 @@
 #include "esp32s3/clk.h"
 #endif
 
-#define PIC_NUM 3
+#define PIC_NUM 15
 /**< Screen inrerface pins */
 #define BOARD_LCD_SPI_HOST 1
 #define BOARD_LCD_SPI_CLOCK_FREQ 20000000
@@ -31,19 +46,59 @@
 #define BOARD_LCD_SPI_RESET_PIN 0
 #define BOARD_LCD_SPI_BL_PIN 21
 
-
-extern uint8_t _binary_1_jpg_start;
-extern uint8_t _binary_1_jpg_end;
-extern uint8_t _binary_2_jpg_start;
-extern uint8_t _binary_2_jpg_end;
-extern uint8_t _binary_3_jpg_start;
-extern uint8_t _binary_3_jpg_end;
+extern uint8_t _binary_0001_jpg_start;
+extern uint8_t _binary_0001_jpg_end;
+extern uint8_t _binary_0002_jpg_start;
+extern uint8_t _binary_0002_jpg_end;
+extern uint8_t _binary_0003_jpg_start;
+extern uint8_t _binary_0003_jpg_end;
+extern uint8_t _binary_0004_jpg_start;
+extern uint8_t _binary_0004_jpg_end;
+extern uint8_t _binary_0005_jpg_start;
+extern uint8_t _binary_0005_jpg_end;
+extern uint8_t _binary_0006_jpg_start;
+extern uint8_t _binary_0006_jpg_end;
+extern uint8_t _binary_0007_jpg_start;
+extern uint8_t _binary_0007_jpg_end;
+extern uint8_t _binary_0008_jpg_start;
+extern uint8_t _binary_0008_jpg_end;
+extern uint8_t _binary_0009_jpg_start;
+extern uint8_t _binary_0009_jpg_end;
+extern uint8_t _binary_0010_jpg_start;
+extern uint8_t _binary_0010_jpg_end;
+extern uint8_t _binary_0011_jpg_start;
+extern uint8_t _binary_0011_jpg_end;
+extern uint8_t _binary_0012_jpg_start;
+extern uint8_t _binary_0012_jpg_end;
+extern uint8_t _binary_0013_jpg_start;
+extern uint8_t _binary_0013_jpg_end;
+extern uint8_t _binary_0014_jpg_start;
+extern uint8_t _binary_0014_jpg_end;
+extern uint8_t _binary_0015_jpg_start;
+extern uint8_t _binary_0015_jpg_end;
 
 static const char *TAG = "jpeg decode";
 scr_driver_t g_lcd;
 static scr_info_t g_lcd_info;
 
-static void screen_clear(scr_driver_t *lcd, int color)
+typedef struct {
+        uint16_t width;
+        uint16_t height;
+        uint16_t data_offset;
+        const uint8_t *input;
+        uint8_t *output;
+} rgb_jpg_decoder;
+
+static void *_malloc(size_t size)
+{
+#ifdef USE_PSRAM
+    return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+#else
+    return heap_caps_malloc(size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+#endif
+}
+
+static void lcd_screen_clear(scr_driver_t *lcd, int color)
 {
     scr_info_t lcd_info;
     lcd->get_info(&lcd_info);
@@ -67,7 +122,7 @@ static void screen_clear(scr_driver_t *lcd, int color)
     }
 }
 
-void lcd_init(void)
+static void lcd_init(void)
 {
     esp_err_t ret = ESP_OK;
 
@@ -78,16 +133,16 @@ void lcd_init(void)
         .max_transfer_sz = 2*320*240 + 10,
     };
     spi_bus_handle_t spi_bus = spi_bus_create(SPI2_HOST, &bus_conf);
-    if(spi_bus != NULL) {
-        ESP_LOGE(TAG, "spi_bus2 creat failed");
+    if(spi_bus == NULL) {
+        ESP_LOGE(TAG, "spi_bus2 create failed");
     }
 
     scr_interface_spi_config_t spi_lcd_cfg = {
         .spi_bus = spi_bus,
         .pin_num_cs = BOARD_LCD_SPI_CS_PIN,
         .pin_num_dc = BOARD_LCD_SPI_DC_PIN,
-        .clk_freq = BOARD_LCD_SPI_CLOCK_FREQ,
-        .swap_data = true,
+        .clk_freq = 40000000,
+        .swap_data = false,
     };
 
     scr_interface_driver_t *iface_drv;
@@ -119,9 +174,102 @@ void lcd_init(void)
     g_lcd.get_info(&g_lcd_info);
     ESP_LOGI(TAG, "Screen name:%s | width:%d | height:%d", g_lcd_info.name, g_lcd_info.width, g_lcd_info.height);
 
-    screen_clear(&g_lcd, COLOR_ESP_BKGD);
+    lcd_screen_clear(&g_lcd, COLOR_ESP_BKGD);
     vTaskDelay(pdMS_TO_TICKS(500));
 
+}
+
+//output buffer and image width
+#define BUF_WIDTH 320
+#define BUF_HIGHT 48
+
+static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t *data)
+{
+    rgb_jpg_decoder * jpeg = (rgb_jpg_decoder *)arg;
+
+    //ESP_LOGE(TAG,"x=%d y=%d yBUF_HIGHT=%d w=%d, h=%d",x,y,y % BUF_HIGHT, w,h);
+
+    if(!data){
+        if(x == 0 && y == 0) {
+            //write start
+            jpeg->width = w;
+            jpeg->height = h;
+            //if output is null, this is BMP
+            if(!jpeg->output){
+                //ESP_LOGI(TAG, "malloc_size = %d ", (BUF_WIDTH*BUF_HIGHT*2)+jpeg->data_offset);
+                jpeg->output = (uint8_t *)_malloc((BUF_WIDTH*BUF_HIGHT*2)+jpeg->data_offset);
+                if(!jpeg->output){
+                    ESP_LOGE(TAG, "malloc failed %s %d malloc_size = %d but reserved = %d", __func__, __LINE__,(BUF_WIDTH*BUF_HIGHT*2)+jpeg->data_offset, esp_get_minimum_free_heap_size());
+                    return false;
+                }
+            }
+        } else {
+            if(jpeg->output) {
+            //ESP_LOGI(TAG, "free_size = %d ", (BUF_WIDTH*BUF_HIGHT*2)+jpeg->data_offset);
+            free(jpeg->output);
+            }
+        }
+        return true;
+    }
+
+    size_t width_565 = jpeg->width*2;//bytes each row dest
+    size_t rowstart_565 = (y % BUF_HIGHT) * width_565;//start byte of row y dest
+    size_t rowend_565 = rowstart_565 + (h * width_565);//end byte of block end row
+
+    uint8_t *out_buffer_start = jpeg->output+jpeg->data_offset;
+    size_t iy, ix, ix2;
+
+
+    int w_byte = w*3;
+
+    for(iy=rowstart_565; iy<rowend_565; iy+=width_565) {//start row to end row
+        uint8_t *out_buffer = out_buffer_start+x*2+iy;
+        for(ix2=ix=0; ix<w_byte; ix+= 3, ix2 +=2) {//start column to end column
+            uint16_t r = data[ix];
+            uint16_t g = data[ix+1];
+            uint16_t b = data[ix+2];
+            uint16_t c = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+            out_buffer[ix2] = c>>8;
+            out_buffer[ix2+1] = c&0xff;
+        }
+        data+=w_byte;
+    }
+
+    if (x >= (320 - w) && y<= 240) //buffer full
+    {
+        if ((y + h)%48 == 0)
+        {
+            g_lcd.draw_bitmap(0, (y + h - 48), BUF_WIDTH, BUF_HIGHT, (uint16_t *)(jpeg->output));
+        }
+        
+    }
+
+    return true;
+}
+
+//input buffer
+static uint32_t _jpg_read(void * arg, size_t index, uint8_t *buf, size_t len)
+{
+    rgb_jpg_decoder * jpeg = (rgb_jpg_decoder *)arg;
+    if(buf) {
+        memcpy(buf, jpeg->input + index, len);
+    }
+    return len;
+}
+
+bool jpg2lcd(const uint8_t *src, size_t src_len, uint8_t * out_buffer_start, jpg_scale_t scale)
+{
+    rgb_jpg_decoder jpeg;
+    jpeg.width = 0;
+    jpeg.height = 0;
+    jpeg.input = src;
+    jpeg.output = out_buffer_start;
+    jpeg.data_offset = 0;
+
+    if(esp_jpg_decode(src_len, scale, _jpg_read, _lcd_write, (void*)&jpeg) != ESP_OK){
+        return false;
+    }
+    return true;
 }
 
 void app_main(void)
@@ -151,19 +299,35 @@ void app_main(void)
 #endif
     printf("core: %d frq: %d core_num: %d \n", xPortGetCoreID(),esp_clk_cpu_freq(), core_num);
 
-    size_t pic_size[PIC_NUM] = {&_binary_1_jpg_end - &_binary_1_jpg_start, &_binary_2_jpg_end - &_binary_2_jpg_start, &_binary_3_jpg_end - &_binary_3_jpg_start};
-    uint8_t *pic_address[PIC_NUM] = {&_binary_1_jpg_start, &_binary_2_jpg_start, &_binary_3_jpg_start};
+    lcd_init();
+
+    size_t pic_size[PIC_NUM] = {
+    &_binary_0001_jpg_end - &_binary_0001_jpg_start, &_binary_0002_jpg_end - &_binary_0002_jpg_start, &_binary_0003_jpg_end - &_binary_0003_jpg_start,
+    &_binary_0004_jpg_end - &_binary_0004_jpg_start, &_binary_0005_jpg_end - &_binary_0005_jpg_start, &_binary_0006_jpg_end - &_binary_0006_jpg_start,
+    &_binary_0007_jpg_end - &_binary_0007_jpg_start, &_binary_0008_jpg_end - &_binary_0008_jpg_start, &_binary_0009_jpg_end - &_binary_0009_jpg_start,
+    &_binary_0010_jpg_end - &_binary_0010_jpg_start, &_binary_0011_jpg_end - &_binary_0011_jpg_start, &_binary_0012_jpg_end - &_binary_0012_jpg_start,
+    &_binary_0013_jpg_end - &_binary_0013_jpg_start, &_binary_0014_jpg_end - &_binary_0014_jpg_start, &_binary_0015_jpg_end - &_binary_0015_jpg_start
+    };
+    uint8_t *pic_address[PIC_NUM] = {
+    &_binary_0001_jpg_start, &_binary_0002_jpg_start, &_binary_0003_jpg_start, &_binary_0004_jpg_start, &_binary_0005_jpg_start,
+    &_binary_0006_jpg_start, &_binary_0007_jpg_start, &_binary_0008_jpg_start, &_binary_0009_jpg_start, &_binary_0010_jpg_start,
+    &_binary_0011_jpg_start, &_binary_0012_jpg_start, &_binary_0013_jpg_start, &_binary_0014_jpg_start, &_binary_0015_jpg_start
+    };
 
     int64_t time_start_us = esp_timer_get_time();
-    lcd_init();
-    for (int i = 0; i < PIC_NUM; i++) {
+    for (int i = 0; i < 10000000; i++) {
+        int index = i % 15;
         int64_t time_temp = esp_timer_get_time();
-        p_jpeg = (uint8_t *)realloc(p_jpeg, pic_size[i]);
-        assert(p_jpeg != NULL);
-        memcpy(p_jpeg, pic_address[i], pic_size[i]);
-        printf("%d.jpeg memcpy time = %lld\n", i+1, esp_timer_get_time() - time_temp);
-        jpg2rgb565(p_jpeg, pic_size[i], NULL, JPG_SCALE_NONE);
-        printf("%d.jpeg all process time = %lld\n", i+1, esp_timer_get_time() - time_temp);
+        p_jpeg = (uint8_t *)realloc(p_jpeg, pic_size[index]);
+        if (p_jpeg == NULL)
+        {
+            ESP_LOGE(TAG,"realloc fail index=%d size=%d", index, pic_size[index]);
+        }
+        memcpy(p_jpeg, pic_address[index], pic_size[index]);
+        //printf("%d.jpeg memcpy time = %lld\n", index+1, esp_timer_get_time() - time_temp);
+        jpg2lcd(p_jpeg, pic_size[index], NULL, JPG_SCALE_NONE);
+        //printf("%d.jpeg all process time = %lld\n", index+1, esp_timer_get_time() - time_temp);
+        vTaskDelay(1);
     }
     printf("total %d jpeg process time = %lld\n", PIC_NUM, esp_timer_get_time()-time_start_us);
     free(p_jpeg);

@@ -36,8 +36,6 @@ typedef bool (* jpg_writer_cb)(void * arg, uint16_t x, uint16_t y, uint16_t w, u
 
 esp_err_t esp_jpg_decode(size_t len, jpg_scale_t scale, jpg_reader_cb reader, jpg_writer_cb writer, void * arg);
 
-bool jpg2rgb565(const uint8_t *src, size_t src_len, uint8_t * out, jpg_scale_t scale);
-
 #ifdef __cplusplus
 }
 #endif

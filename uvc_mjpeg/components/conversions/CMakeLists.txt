@@ -1,9 +1,9 @@
 
 if(IDF_TARGET STREQUAL "esp32s2")
-    set(srcs "esp_jpg_decode.c" "to_rgb.c" "yuv.c" "tjpgd/tjpgd.c")
+    set(srcs "esp_jpg_decode.c" "yuv.c" "tjpgd/tjpgd.c")
     set(iclds "." "include" "tjpgd")
 else()
-    set(srcs "esp_jpg_decode.c" "to_rgb.c" "yuv.c")
+    set(srcs "esp_jpg_decode.c" "yuv.c")
     set(iclds "." "include")
 endif()
 

@@ -1,3 +1,3 @@
 idf_component_register(SRCS "main.c"
                     INCLUDE_DIRS "."
-                    EMBED_FILES 1.jpg 2.jpg 3.jpg)
+                    EMBED_FILES 0001.jpg 0002.jpg 0003.jpg 0004.jpg 0005.jpg 0006.jpg 0007.jpg 0008.jpg 0009.jpg 0010.jpg 0011.jpg 0012.jpg 0013.jpg 0014.jpg 0015.jpg)
