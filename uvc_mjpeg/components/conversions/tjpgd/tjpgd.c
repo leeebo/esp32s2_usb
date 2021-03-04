@@ -758,7 +758,7 @@ JRESULT jd_prepare (
 	uint16_t n, i, j, len;
 	JRESULT rc;
 
-	//printf("\ntjpgd from user code\n\n");
+	printf("\ntjpgd from user code\n\n");
 	if (!pool) return JDR_PAR;
 
 	jd->pool = pool;		/* Work memroy */

@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.5)
 # (Not part of the boilerplate)
 # This example uses an extra component for common functions such as Wi-Fi and Ethernet connection.
 set(EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/examples/common_components/protocol_examples_common)
+set(EXTRA_COMPONENT_DIRS ${EXTRA_COMPONENT_DIRS} $ENV{IOT_SOLUTION_PATH}/components/bus $ENV{IOT_SOLUTION_PATH}/components/display/screen)
 
-include($ENV{IOT_SOLUTION_PATH}/component.cmake)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(uvc_mjpeg)

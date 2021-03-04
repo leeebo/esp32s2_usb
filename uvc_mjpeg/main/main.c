@@ -7,12 +7,13 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "esp_jpg_decode.h"
-#include "spi_bus.h"
-#include "screen_driver.h"
 #include "esp_log.h"
 #include "soc/efuse_reg.h"
 #include "esp_heap_caps.h"
 #include "yuv.h"
+#include "taskmonitor.h"
+#include "spi_bus.h"
+#include "screen_driver.h"
 
 #ifdef USE_PSRAM
 #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
@@ -274,30 +275,32 @@ bool jpg2lcd(const uint8_t *src, size_t src_len, uint8_t * out_buffer_start, jpg
 
 void app_main(void)
 {
-    printf("Hello world!\n");
+    ESP_LOGI(TAG, "Hello world!\n");
 
     /* Print chip information */
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    printf("This is %s chip with %d CPU core(s), WiFi%s%s, ",
+    ESP_LOGI(TAG, "This is %s chip with %d CPU core(s), WiFi%s%s, ",
             CONFIG_IDF_TARGET,
             chip_info.cores,
             (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
             (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 
-    printf("silicon revision %d, ", chip_info.revision);
+    ESP_LOGI(TAG, "silicon revision %d, ", chip_info.revision);
 
-    printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+    ESP_LOGI(TAG, "%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    printf("Minimum free heap size: %d bytes\n", esp_get_minimum_free_heap_size());
+    ESP_LOGI(TAG, "Minimum free heap size: %d bytes\n", esp_get_minimum_free_heap_size());
     uint8_t *p_jpeg = NULL;
 
     int core_num = 2;
 #if CONFIG_FREERTOS_UNICORE
     core_num = 1;
 #endif
-    printf("core: %d frq: %d core_num: %d \n", xPortGetCoreID(),esp_clk_cpu_freq(), core_num);
+    ESP_LOGI(TAG, "core: %d frq: %d core_num: %d \n", xPortGetCoreID(),esp_clk_cpu_freq(), core_num);
+    taskMonitorInit();
+    taskMonitorStart();
 
     lcd_init();
 
@@ -314,22 +317,24 @@ void app_main(void)
     &_binary_0011_jpg_start, &_binary_0012_jpg_start, &_binary_0013_jpg_start, &_binary_0014_jpg_start, &_binary_0015_jpg_start
     };
 
-    int64_t time_start_us = esp_timer_get_time();
+    int64_t time_start_us = 0;
+    int64_t time_temp = 0;
     for (int i = 0; i < 10000000; i++) {
-        int index = i % 15;
-        int64_t time_temp = esp_timer_get_time();
+        int index = i % 8;
+        if (index == 0) time_start_us = esp_timer_get_time();
+        //time_temp = esp_timer_get_time();
         p_jpeg = (uint8_t *)realloc(p_jpeg, pic_size[index]);
         if (p_jpeg == NULL)
         {
             ESP_LOGE(TAG,"realloc fail index=%d size=%d", index, pic_size[index]);
         }
         memcpy(p_jpeg, pic_address[index], pic_size[index]);
-        //printf("%d.jpeg memcpy time = %lld\n", index+1, esp_timer_get_time() - time_temp);
+        //ESP_LOGI(TAG, "%d.jpeg memcpy time = %lld\n", index+1, esp_timer_get_time() - time_temp);
         jpg2lcd(p_jpeg, pic_size[index], NULL, JPG_SCALE_NONE);
-        //printf("%d.jpeg all process time = %lld\n", index+1, esp_timer_get_time() - time_temp);
-        vTaskDelay(1);
+        //ESP_LOGI(TAG, "%d.jpeg all process time = %lld\n", index+1, esp_timer_get_time() - time_temp);
+        vTaskDelay(2);
+        if (index == 7) ESP_LOGI(TAG, "total %d jpeg process time = %lld\n", PIC_NUM, esp_timer_get_time()-time_start_us);
     }
-    printf("total %d jpeg process time = %lld\n", PIC_NUM, esp_timer_get_time()-time_start_us);
     free(p_jpeg);
     fflush(stdout);
     vTaskDelay(10000000000000 / portTICK_PERIOD_MS);

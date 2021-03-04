@@ -8,5 +8,4 @@ else()
 endif()
 
 idf_component_register(SRCS "${srcs}"
-                    INCLUDE_DIRS "${iclds}"
-                    PRIV_REQUIRES screen)
+                    INCLUDE_DIRS "${iclds}")
