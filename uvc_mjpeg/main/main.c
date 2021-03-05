@@ -180,9 +180,16 @@ static void lcd_init(void)
 
 }
 
+#define SIZE_160_120 1
+
 //output buffer and image width
+#ifdef SIZE_320_240
 #define BUF_WIDTH 320
 #define BUF_HIGHT 48
+#elif SIZE_160_120
+#define BUF_WIDTH 160
+#define BUF_HIGHT 120
+#endif
 
 static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t *data)
 {
@@ -236,6 +243,7 @@ static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t 
         data+=w_byte;
     }
 
+#ifdef SIZE_320_240
     if (x >= (320 - w) && y<= 240) //buffer full
     {
         if ((y + h)%48 == 0)
@@ -244,6 +252,13 @@ static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t 
         }
         
     }
+#elif SIZE_160_120
+    if (x >= (160 - w) && y>= (120 - h)) //buffer full
+    {
+        g_lcd.draw_bitmap(0, 0, BUF_WIDTH, BUF_HIGHT, (uint16_t *)(jpeg->output));
+    //ESP_LOGE(TAG,"draw pic");
+    }
+#endif
 
     return true;
 }
@@ -320,7 +335,7 @@ void app_main(void)
     int64_t time_start_us = 0;
     int64_t time_temp = 0;
     for (int i = 0; i < 10000000; i++) {
-        int index = i % 8;
+        int index = i % 15;
         if (index == 0) time_start_us = esp_timer_get_time();
         //time_temp = esp_timer_get_time();
         p_jpeg = (uint8_t *)realloc(p_jpeg, pic_size[index]);
@@ -332,8 +347,11 @@ void app_main(void)
         //ESP_LOGI(TAG, "%d.jpeg memcpy time = %lld\n", index+1, esp_timer_get_time() - time_temp);
         jpg2lcd(p_jpeg, pic_size[index], NULL, JPG_SCALE_NONE);
         //ESP_LOGI(TAG, "%d.jpeg all process time = %lld\n", index+1, esp_timer_get_time() - time_temp);
-        vTaskDelay(2);
-        if (index == 7) ESP_LOGI(TAG, "total %d jpeg process time = %lld\n", PIC_NUM, esp_timer_get_time()-time_start_us);
+        //vTaskDelay(2);
+        if (index == 14) {
+            ESP_LOGI(TAG, "total %d jpeg process time = %lld\n", PIC_NUM, esp_timer_get_time()-time_start_us);
+            vTaskDelay(1);    
+        }
     }
     free(p_jpeg);
     fflush(stdout);
