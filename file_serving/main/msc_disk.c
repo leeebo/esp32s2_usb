@@ -132,9 +132,9 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize)
 {
     (void) lun;
-    ESP_LOGI(__func__, "");
+    //ESP_LOGI(__func__, "");
     const uint32_t block_count = bufsize / DISK_BLOCK_SIZE;
-    disk_read(0x108, buffer, lba, block_count);
+    disk_read(0, buffer, lba, block_count);
     return block_count * DISK_BLOCK_SIZE;
 }
 
@@ -144,9 +144,9 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* 
 {
     (void) lun;
     (void) offset;
-    ESP_LOGI(__func__, "");
+    //ESP_LOGI(__func__, "");
     const uint32_t block_count = bufsize / DISK_BLOCK_SIZE;
-    disk_write(0x108, buffer, lba, block_count);
+    disk_write(0, buffer, lba, block_count);
     return block_count * DISK_BLOCK_SIZE;
 }
 

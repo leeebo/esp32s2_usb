@@ -58,6 +58,16 @@ StaticTask_t usb_device_taskdef;
 
 #define SPI_DMA_CHAN    host.slot
 
+#ifndef USE_INTERNAL_FLASH
+#define SD_SPI_MOSI 13
+#define SD_SPI_MISO 15
+#define SD_SPI_SCL 14
+#define SD_SPI_CS 12
+// #define SD_SPI_MOSI 38
+// #define SD_SPI_MISO 40
+// #define SD_SPI_SCL 39
+// #define SD_SPI_CS 37
+#endif
 // Mount path for the partition
 const char *base_path = "/spiflash";
 /* Function to initialize SPIFFS */
@@ -93,9 +103,9 @@ static esp_err_t init_fat(void)
 
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     spi_bus_config_t bus_cfg = {
-        .mosi_io_num = 13,
-        .miso_io_num = 15,
-        .sclk_io_num = 14,
+        .mosi_io_num = SD_SPI_MOSI,
+        .miso_io_num = SD_SPI_MISO,
+        .sclk_io_num = SD_SPI_SCL,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
@@ -110,7 +120,7 @@ static esp_err_t init_fat(void)
     // This initializes the slot without card detect (CD) and write protect (WP) signals.
     // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
-    slot_config.gpio_cs = 12;
+    slot_config.gpio_cs = SD_SPI_CS;
     slot_config.host_id = host.slot;
 
     err = esp_vfs_fat_sdspi_mount(base_path, &host, &slot_config, &mount_config, &card);
