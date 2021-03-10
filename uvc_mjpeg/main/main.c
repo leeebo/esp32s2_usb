@@ -15,7 +15,7 @@
 #include "spi_bus.h"
 #include "screen_driver.h"
 
-#ifdef USE_PSRAM
+#ifdef CONFIG_USE_PSRAM
 #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
 #include "esp32/spiram.h"
 #elif CONFIG_IDF_TARGET_ESP32S2
@@ -33,6 +33,15 @@
 #include "esp32s2/clk.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/clk.h"
+#endif
+
+//output buffer and image width
+#ifdef CONFIG_SIZE_320_240
+#define BUF_WIDTH 320
+#define BUF_HIGHT 48
+#elif CONFIG_SIZE_160_120
+#define BUF_WIDTH 160
+#define BUF_HIGHT 120
 #endif
 
 #define PIC_NUM 15
@@ -180,17 +189,6 @@ static void lcd_init(void)
 
 }
 
-#define SIZE_160_120 1
-
-//output buffer and image width
-#ifdef SIZE_320_240
-#define BUF_WIDTH 320
-#define BUF_HIGHT 48
-#elif SIZE_160_120
-#define BUF_WIDTH 160
-#define BUF_HIGHT 120
-#endif
-
 static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t *data)
 {
     rgb_jpg_decoder * jpeg = (rgb_jpg_decoder *)arg;
@@ -227,7 +225,6 @@ static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t 
     uint8_t *out_buffer_start = jpeg->output+jpeg->data_offset;
     size_t iy, ix, ix2;
 
-
     int w_byte = w*3;
 
     for(iy=rowstart_565; iy<rowend_565; iy+=width_565) {//start row to end row
@@ -243,7 +240,7 @@ static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t 
         data+=w_byte;
     }
 
-#ifdef SIZE_320_240
+#ifdef CONFIG_SIZE_320_240
     if (x >= (320 - w) && y<= 240) //buffer full
     {
         if ((y + h)%48 == 0)
@@ -252,7 +249,7 @@ static bool _lcd_write(void * arg, uint16_t x, uint16_t y, uint16_t w, uint16_t 
         }
         
     }
-#elif SIZE_160_120
+#elif CONFIG_SIZE_160_120
     if (x >= (160 - w) && y>= (120 - h)) //buffer full
     {
         g_lcd.draw_bitmap(0, 0, BUF_WIDTH, BUF_HIGHT, (uint16_t *)(jpeg->output));

@@ -1,0 +1,18 @@
+menu "UVC Camera Demo"
+
+    config USE_PSRAM
+        bool "use psram as picture buffer"
+        default false
+
+    choice PIC_SIZE
+        prompt "picture size"
+        default SIZE_320_240
+
+        config SIZE_320_240
+            bool "320*240 refresh 320*48 each step"
+
+        config SIZE_160_120
+            bool "160*120 refresh 160*120 each step"
+    endchoice
+
+endmenu
