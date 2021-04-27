@@ -32,9 +32,8 @@
 #include "esp_vfs_fat.h"
 
 //#define WIFI_SSID      "Udp Server"
-static char WIFI_SSID[32] = "ESP-DRONE";
+static char WIFI_SSID[32] = "";
 static char* WIFI_PWD = "";
-// static char WIFI_PWD[64] = "12345678" ;
 #define MAX_STA_CONN (2)
 
 /* This example demonstrates how to create file server
@@ -46,10 +45,6 @@ static const char *TAG="example";
 // Handle of the wear levelling library instance
 wl_handle_t s_wl_handle_1 = WL_INVALID_HANDLE;
 BYTE pdrv_msc = 0xFF;
-
-#define USBD_STACK_SIZE     4096
-StackType_t  usb_device_stack[USBD_STACK_SIZE];
-StaticTask_t usb_device_taskdef;
 
 // Mount path for the partition
 const char *base_path = "/spiflash";
@@ -78,20 +73,6 @@ static esp_err_t init_fat(void)
  * Implementation of this function is to be found in
  * file_server.c */
 esp_err_t start_file_server(const char *base_path);
-
-// USB Device Driver task
-// This top level thread processes all usb events and invokes callbacks
-static void usb_device_task(void *param)
-{
-    (void)param;
-    ESP_LOGI(TAG, "USB task started");
-    while (1) {
-        if(tusb_inited()) {
-            tud_task(); // RTOS forever loop
-        }
-        vTaskDelay(1);
-    }
-}
 
 void cdc_task(void* params)
 {
@@ -172,11 +153,6 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_ap();
 
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    //ESP_ERROR_CHECK(example_connect());
     uint8_t mac[6];
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -226,13 +202,7 @@ void app_main(void)
 
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
     ESP_LOGI(TAG, "USB initialization DONE");
-    // Create a task for tinyusb device stack:
-    (void) xTaskCreateStatic(usb_device_task,
-                            "usbd",
-                            USBD_STACK_SIZE,
-                            NULL,
-                            5,
-                            usb_device_stack,
-                            &usb_device_taskdef);
+
+    /* add CDC echo for test*/
     xTaskCreate(cdc_task, "cdc", 4096, NULL, 4, NULL);
 }
